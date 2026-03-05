@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<title>ラッキーガチャ</title>
+
+<style>
+
+body{
+font-family:sans-serif;
+text-align:center;
+margin:0;
+color:white;
+background: linear-gradient(270deg,#ff6ec4,#7873f5,#42e695,#ff6ec4);
+background-size:800% 800%;
+animation:bgMove 10s infinite;
+}
+
+@keyframes bgMove{
+0%{background-position:0% 50%;}
+50%{background-position:100% 50%;}
+100%{background-position:0% 50%;}
+}
+
+#user{
+position:absolute;
+top:10px;
+left:10px;
+background:white;
+color:black;
+padding:10px;
+border-radius:10px;
+}
+
+#loginArea{
+margin-top:80px;
+}
+
+input{
+padding:10px;
+border-radius:10px;
+border:none;
+}
+
+button{
+padding:12px 25px;
+border:none;
+border-radius:20px;
+font-size:16px;
+cursor:pointer;
+}
+
+#daily{
+background:#00c853;
+color:white;
+}
+
+#ad{
+background:#ff9800;
+color:white;
+}
+
+#capsule{
+width:70px;
+height:70px;
+background:linear-gradient(red,white);
+border-radius:50%;
+margin:auto;
+display:none;
+margin-top:20px;
+animation:drop 0.8s;
+}
+
+@keyframes drop{
+0%{transform:translateY(-200px);}
+100%{transform:translateY(0);}
+}
+
+#result{
+font-size:28px;
+margin-top:20px;
+}
+
+#exchange{
+position:fixed;
+bottom:20px;
+right:20px;
+background:#ff5722;
+padding:12px 20px;
+border-radius:20px;
+color:white;
+text-decoration:none;
+}
+
+#probability{
+margin-top:30px;
+background:rgba(0,0,0,0.3);
+padding:15px;
+border-radius:15px;
+display:inline-block;
+}
+
+.sparkle{
+position:absolute;
+font-size:20px;
+animation:spark 3s infinite;
+}
+
+@keyframes spark{
+0%{opacity:0}
+50%{opacity:1}
+100%{opacity:0}
+}
+
+#pityContainer{
+margin-top:20px;
+background:rgba(0,0,0,0.3);
+padding:15px;
+border-radius:15px;
+display:inline-block;
+}
+
+#pityBar{
+width:200px;
+height:30px;
+background:rgba(255,255,255,0.2);
+border-radius:15px;
+overflow:hidden;
+margin:10px auto;
+border:2px solid white;
+}
+
+#pityProgress{
+height:100%;
+background:linear-gradient(90deg,#ff6ec4,#7873f5);
+width:0%;
+transition:width 0.5s;
+display:flex;
+align-items:center;
+justify-content:center;
+color:white;
+font-size:12px;
+font-weight:bold;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="sparkle" style="top:20%;left:10%">✨</div>
+<div class="sparkle" style="top:40%;left:80%">✨</div>
+<div class="sparkle" style="top:70%;left:30%">✨</div>
+
+<div id="user">
+👤 <span id="username">未ログイン</span><br>
+Lv. <span id="level">1</span> (<span id="exp">0</span>/100 EXP)<br>
+💰 <span id="points">0</span>pt
+</div>
+
+<h1>🎰 ラッキーガチャ 🎰</h1>
+
+<div id="loginArea">
+
+<input id="name" placeholder="名前">
+<br><br>
+
+<input id="pass" type="password" placeholder="パスワード">
+<br><br>
+
+<button onclick="register()">アカウント作成</button>
+<button onclick="login()">ログイン</button>
+
+</div>
+
+<div id="gameArea" style="display:none">
+
+<button id="daily" onclick="dailyGacha()">🎁 ログインガチャ</button>
+
+<br><br>
+
+<button id="ad" onclick="adGacha()">📺 広告を見てガチャ</button>
+
+<div id="capsule"></div>
+
+<h2 id="result"></h2>
+
+<div id="pityContainer">
+<h3>⚡ 天井まで</h3>
+<div id="pityBar">
+<div id="pityProgress">0/10</div>
+</div>
+</div>
+
+<div id="probability">
+
+<h3>🎯 当選確率</h3>
+
+🥇1等 100pt → 0.01%<br>
+🥈2等 10pt → 0.1%<br>
+🥉3等 1pt → 10%<br>
+⬜4等 ハズレ → 89.89%
+
+</div>
+
+</div>
+
+<a id="exchange" href="exchange.html">🎁 交換ページ</a>
+
+<script>
+
+let user=null
+let pity=0
+let tenGachaAvailable=false
+
+// ページロード時にログイン状態を復元
+window.onload=function(){
+let savedUser=JSON.parse(localStorage.getItem("user"))
+if(savedUser){
+user=savedUser
+pity=user.pity
+tenGachaAvailable=user.tenGachaAvailable || false
+level=user.level || 1
+exp=user.exp || 0
+document.getElementById("loginArea").style.display="none"
+document.getElementById("gameArea").style.display="block"
+document.getElementById("username").innerText=user.name
+document.getElementById("points").innerText=user.points
+document.getElementById("level").innerText=level
+document.getElementById("exp").innerText=exp+"/"+(level*100)
+updatePityBar()
+updateAdButton()
+}
+}
+
+function register(){
+
+let name=document.getElementById("name").value
+let pass=document.getElementById("pass").value
+
+let deviceID=localStorage.getItem("deviceID")
+let savedUser=localStorage.getItem("user")
+
+if(savedUser){
+alert("この端末ではすでにアカウントが作成されています")
+return
+}
+
+if(!deviceID){
+deviceID="device_"+Math.random()
+localStorage.setItem("deviceID",deviceID)
+}
+
+user={
+name:name,
+pass:pass,
+points:0,
+device:deviceID,
+lastLogin:"",
+pity:0,
+tenGachaAvailable:false,
+level:1,
+exp:0
+}
+
+localStorage.setItem("user",JSON.stringify(user))
+
+alert("アカウント作成完了")
+
+}
+
+function login(){
+
+let name=document.getElementById("name").value
+let pass=document.getElementById("pass").value
+
+let savedUser=JSON.parse(localStorage.getItem("user"))
+
+if(!savedUser){
+alert("アカウントがありません")
+return
+}
+
+if(name==savedUser.name && pass==savedUser.pass){
+
+user=savedUser
+
+document.getElementById("loginArea").style.display="none"
+document.getElementById("gameArea").style.display="block"
+
+document.getElementById("username").innerText=user.name
+document.getElementById("points").innerText=user.points
+
+pity=user.pity
+tenGachaAvailable=user.tenGachaAvailable || false
+level=user.level || 1
+exp=user.exp || 0
+
+document.getElementById("level").innerText=level
+document.getElementById("exp").innerText=exp+"/"+(level*100)
+
+updatePityBar()
+updateAdButton()
+
+}
+
+}
+
+function dailyGacha(){
+
+let today=new Date().toDateString()
+
+if(user.lastLogin==today){
+alert("今日はもうログインガチャを回しています")
+return
+}
+
+user.lastLogin=today
+tenGachaAvailable=true
+user.tenGachaAvailable=true
+localStorage.setItem("user",JSON.stringify(user))
+updateAdButton()
+
+spinGacha()
+
+}
+
+function adGacha(){
+
+alert("広告を見ました（仮）")
+
+if(tenGachaAvailable){
+tenGacha()
+}else{
+spinGacha()
+}
+
+}
+
+function spinGacha(){
+
+let capsule=document.getElementById("capsule")
+
+capsule.style.display="block"
+
+setTimeout(()=>{
+
+resultGacha()
+
+},800)
+
+}
+
+function resultGacha(){
+
+let rand=Math.random()*100
+
+let result=""
+let add=0
+let color=""
+
+if(rand<0.01){
+
+result="🎉🥇1等！100pt！！！"
+add=100
+color="gold"
+pity=0
+
+}else if(rand<0.11){
+
+result="✨🥈2等！10pt！"
+add=10
+color="purple"
+pity=0
+
+}else if(rand<10.11){
+
+result="😊🥉3等！1pt"
+add=1
+color="blue"
+pity=0
+
+}else{
+
+pity++
+
+if(pity>=10){
+
+result="🎁 天井！1pt"
+add=1
+color="blue"
+pity=0
+
+}else{
+
+result="ハズレ"
+color="linear-gradient(red,white)"
+
+}
+
+}
+
+user.points+=add
+
+user.pity=pity
+
+document.getElementById("points").innerText=user.points
+
+document.getElementById("result").innerText=result
+
+exp +=1
+checkLevelUp()
+
+dropCapsule(color)
+
+updatePityBar()
+
+localStorage.setItem("user",JSON.stringify(user))
+
+}
+
+function tenGacha(){
+
+tenGachaAvailable=false
+user.tenGachaAvailable=false
+localStorage.setItem("user",JSON.stringify(user))
+updateAdButton()
+
+let results=[]
+let totalAdd=0
+
+for(let i=0;i<10;i++){
+
+let rand=Math.random()*100
+let result=""
+let add=0
+
+if(rand<0.01){
+result="🥇1等 100pt"
+add=100
+pity=0
+}else if(rand<0.11){
+result="🥈2等 10pt"
+add=10
+pity=0
+}else if(rand<10.11){
+result="🥉3等 1pt"
+add=1
+pity=0
+}else{
+pity++
+if(pity>=10){
+result="🎁天井 1pt"
+add=1
+pity=0
+}else{
+result="ハズレ"
+}
+}
+
+results.push(result)
+totalAdd+=add
+
+}
+
+user.points+=totalAdd
+user.pity=pity
+document.getElementById("points").innerText=user.points
+updatePityBar()
+localStorage.setItem("user",JSON.stringify(user))
+
+exp +=10
+checkLevelUp()
+
+let resultText="🎉10連ガチャ結果🎉\n\n"
+results.forEach((r,i)=>resultText+=(i+1)+". "+r+"\n")
+resultText+="\n合計獲得: "+totalAdd+"pt"
+
+document.getElementById("result").innerText=resultText
+
+}
+
+function checkLevelUp(){
+let requiredExp = level * 100
+if(exp >= requiredExp && level < 100){
+exp -= requiredExp
+level++
+user.points += 10
+user.level = level
+user.exp = exp
+document.getElementById("points").innerText=user.points
+document.getElementById("level").innerText=level
+document.getElementById("exp").innerText=exp+"/"+(level*100)
+alert("レベルアップ！ Lv."+level+" に上がりました！\nボーナス: 10pt")
+}
+document.getElementById("exp").innerText=exp+"/"+(level*100)
+}
+
+function updateAdButton(){
+let adBtn=document.getElementById("ad")
+if(tenGachaAvailable){
+adBtn.innerText="📺 10連広告ガチャ"
+}else{
+adBtn.innerText="📺 広告を見てガチャ"
+}
+}
+
+function updatePityBar(){
+let percentage=(pity/10)*100
+document.getElementById("pityProgress").style.width=percentage+"%"
+document.getElementById("pityProgress").innerText=pity+"/10"
+}
+
+</script>
+
+</body>
+</html>
